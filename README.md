@@ -1,4 +1,4 @@
-# Drupal
+# Drupal PHP 8
 
 ```yalm
 version: '3'
@@ -7,7 +7,7 @@ services:
 
   db:
     image: hasangnu/mariadb
-    container_name: hasangnu-mariadb
+    container_name: hasangnu-8-mariadb
     environment:
       MYSQL_ROOT_PASSWORD: 'drupal'
       MYSQL_DATABASE: 'drupal'
@@ -17,10 +17,10 @@ services:
       - ./mariadb-data/mysql:/var/lib/mysql
 
   drupal:
-    image: hasangnu/php-drupal
-    container_name: hasangnu-drupal0
+    image: hasangnu/php8-drupal
+    container_name: hasangnu-8-drupal
     ports:
-      - 8880:80
+      - 8384:80
     volumes:
       - ./drupal-data:/var/www/html
     restart: always
@@ -29,7 +29,7 @@ services:
     image: hasangnu/adminer
     restart: always
     ports:
-      - 8088:8080
+      - 8385:8080
 ```
 
 ```
