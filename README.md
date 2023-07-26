@@ -21,6 +21,7 @@ services:
     container_name: hasangnu-8-drupal
     ports:
       - 8384:80
+      - 8433:443
     volumes:
       - ./drupal-data:/var/www/html
     restart: always
