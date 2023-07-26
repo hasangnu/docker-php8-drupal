@@ -1,4 +1,4 @@
-FROM php:8.0-apache-buster
+FROM php:8.2-apache-bookworm
 
 RUN set -eux; \
 	\
@@ -14,14 +14,14 @@ RUN set -eux; \
 		libjpeg-dev \
 		libpng-dev \
 		libpq-dev \
+		libwebp-dev \
 		libzip-dev \
-	; \
-	apt-get -y install git \
 	; \
 	\
 	docker-php-ext-configure gd \
 		--with-freetype \
 		--with-jpeg=/usr \
+		--with-webp \
 	; \
 	\
 	docker-php-ext-install -j "$(nproc)" \
@@ -35,7 +35,7 @@ RUN set -eux; \
 	apt-mark auto '.*' > /dev/null; \
 	apt-mark manual $savedAptMark; \
 	ldd "$(php -r 'echo ini_get("extension_dir");')"/*.so \
-		| awk '/=>/ { print $3 }' \
+		| awk '/=>/ { so = $(NF-1); if (index(so, "/usr/local/") == 1) { next }; gsub("^/(usr/)?", "", so); print so }' \
 		| sort -u \
 		| xargs -r dpkg-query -S \
 		| cut -d: -f1 \
@@ -48,24 +48,29 @@ RUN set -eux; \
 RUN apt-get update && apt-get install -y \
 	git \
 	nano \
+	unzip \
+	wget \
 	libxrender1 \
 	libfontconfig1 \
 	libxext6 \
+	ssl-cert \
 	&& rm -rf /var/lib/apt/lists/*
-
-RUN pecl channel-update pecl.php.net \
-    && yes '' | pecl install -f apcu-5.1.19
-
-RUN docker-php-ext-enable apcu
 
 RUN { \
 		echo 'opcache.memory_consumption=128'; \
 		echo 'opcache.interned_strings_buffer=8'; \
 		echo 'opcache.max_accelerated_files=4000'; \
 		echo 'opcache.revalidate_freq=60'; \
-		echo 'opcache.fast_shutdown=1'; \
-                echo 'memory_limit=-1'; \
 	} > /usr/local/etc/php/conf.d/opcache-recommended.ini
+
+RUN { \
+	echo 'upload_max_filesize = 16M'; \
+	echo 'post_max_size = 16M'; \
+	} > /usr/local/etc/php/conf.d/upload-recommended.ini
+
+RUN a2enmod ssl
+
+RUN a2ensite default-ssl.conf
 
 COPY --from=composer:2 /usr/bin/composer /usr/local/bin/
 
@@ -75,6 +80,10 @@ COPY composer.json /opt/drupal
 
 RUN set -eux; \
 	export COMPOSER_HOME="$(mktemp -d)"; \
+	composer config --no-plugins allow-plugins.composer/installers true; \
+	composer config --no-plugins allow-plugins.drupal/core-composer-scaffold true; \
+	composer config --no-plugins allow-plugins.drupal/core-project-message true; \
+	composer config --no-plugins allow-plugins.wikimedia/composer-merge-plugin true; \
 	composer install; \
 	rm -rf "$COMPOSER_HOME"
 
@@ -83,6 +92,8 @@ VOLUME /var/www/html
 WORKDIR /var/www/html
 
 COPY docker-entrypoint.sh /usr/local/bin/
+
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 ENTRYPOINT ["docker-entrypoint.sh"]
 
